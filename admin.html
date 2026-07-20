@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>진행자 대시보드</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    background: #17142a; color: #f2f0fa; min-height: 100vh;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 21px; font-weight: 800; }
+  .sub { margin-top: 6px; font-size: 13px; color: #9a94b8; }
+
+  /* 로그인 */
+  #login { max-width: 360px; margin: 100px auto 0; text-align: center; }
+  #login input {
+    width: 100%; margin-top: 20px; padding: 14px 16px; font-size: 16px;
+    border: 2px solid #3a3560; border-radius: 12px; background: #211d3d; color: #fff;
+    font-family: inherit; outline: none;
+  }
+  #login input:focus { border-color: #7c66ff; }
+  #login button {
+    width: 100%; margin-top: 12px; padding: 14px; font-size: 16px; font-weight: 700;
+    border: 0; border-radius: 12px; background: #5b3df5; color: #fff; cursor: pointer; font-family: inherit;
+  }
+  #login-err { margin-top: 12px; font-size: 13.5px; color: #ff8f8f; min-height: 18px; }
+
+  /* 대시보드 */
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .pill {
+    font-size: 12.5px; font-weight: 700; padding: 6px 12px; border-radius: 999px;
+  }
+  .pill.open { background: #123f2b; color: #4ade80; }
+  .pill.closed { background: #461822; color: #ff8f8f; }
+
+  .total-card {
+    margin-top: 24px; background: #211d3d; border-radius: 16px; padding: 22px;
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  .total-num { font-size: 44px; font-weight: 800; color: #a794ff; }
+  .total-label { font-size: 14px; color: #9a94b8; }
+
+  .results { margin-top: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .row { background: #211d3d; border-radius: 14px; padding: 16px 18px; }
+  .row.first { border: 2px solid #7c66ff; }
+  .row-head { display: flex; align-items: center; gap: 10px; }
+  .rank { font-size: 18px; width: 28px; }
+  .row-title { font-size: 16px; font-weight: 700; flex: 1; }
+  .row-count { font-size: 17px; font-weight: 800; color: #a794ff; }
+  .row-pct { font-size: 12.5px; color: #9a94b8; margin-left: 6px; }
+  .bar-bg { margin-top: 10px; height: 8px; background: #322d55; border-radius: 99px; overflow: hidden; }
+  .bar { height: 100%; background: #7c66ff; border-radius: 99px; transition: width .5s; }
+
+  .controls { margin-top: 28px; display: flex; gap: 10px; }
+  .controls button {
+    flex: 1; padding: 14px; font-size: 15px; font-weight: 700; font-family: inherit;
+    border: 0; border-radius: 12px; cursor: pointer;
+  }
+  #toggle-btn.to-close { background: #7a2433; color: #fff; }
+  #toggle-btn.to-open { background: #1d5c3d; color: #fff; }
+
+  .recent { margin-top: 32px; }
+  .recent h2 { font-size: 14px; color: #9a94b8; font-weight: 700; }
+  .recent-list { margin-top: 10px; font-size: 13px; color: #7f79a0; line-height: 1.9; font-variant-numeric: tabular-nums; }
+  .updated { margin-top: 24px; font-size: 12px; color: #5f5a80; text-align: center; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="login">
+    <h1>🔐 진행자 대시보드</h1>
+    <div class="sub">관리자 비밀번호를 입력하세요</div>
+    <input type="password" id="pass-input" placeholder="비밀번호" autocomplete="off">
+    <button id="login-btn">입장하기</button>
+    <div id="login-err"></div>
+  </div>
+
+  <div id="dash" class="hidden">
+    <div class="topbar">
+      <div>
+        <h1>📊 실시간 투표 현황</h1>
+        <div class="sub">참여후기 공모전 BEST 3 · 3초마다 자동 갱신</div>
+      </div>
+      <div id="status-pill" class="pill open">투표 진행 중</div>
+    </div>
+
+    <div class="total-card">
+      <div class="total-num" id="total">0</div>
+      <div class="total-label">명 참여</div>
+    </div>
+
+    <div class="results" id="results"></div>
+
+    <div class="controls">
+      <button id="toggle-btn" class="to-close">투표 마감하기</button>
+    </div>
+
+    <div class="recent">
+      <h2>최근 투표 기록 (최근 30건 · 시간 패턴 확인용)</h2>
+      <div class="recent-list" id="recent"></div>
+    </div>
+
+    <div class="updated" id="updated"></div>
+  </div>
+
+</div>
+
+<script src="config.js"></script>
+<script>
+let pass = sessionStorage.getItem('best3_admin_pass') || '';
+let isOpen = true;
+let entryNames = {};
+let timer = null;
+
+const $ = id => document.getElementById(id);
+
+async function refresh() {
+  const [results, recent] = await Promise.all([
+    sbPost('rpc/contest_get_results', { pass }),
+    sbPost('rpc/contest_recent_votes', { pass }),
+  ]);
+  isOpen = await sbPost('rpc/contest_is_open', {});
+
+  const total = results.reduce((s, r) => s + Number(r.vote_count), 0);
+  $('total').textContent = total;
+
+  const medals = ['🥇', '🥈', '🥉'];
+  $('results').innerHTML = '';
+  results.forEach((r, i) => {
+    entryNames[r.entry_id] = r.title;
+    const pct = total ? Math.round(r.vote_count / total * 100) : 0;
+    const row = document.createElement('div');
+    row.className = 'row' + (i === 0 && total > 0 ? ' first' : '');
+    row.innerHTML = `
+      <div class="row-head">
+        <div class="rank">${medals[i] || ''}</div>
+        <div class="row-title"></div>
+        <div class="row-count">${r.vote_count}표<span class="row-pct">${pct}%</span></div>
+      </div>
+      <div class="bar-bg"><div class="bar" style="width:${pct}%"></div></div>`;
+    row.querySelector('.row-title').textContent = r.title + (r.author ? ` · ${r.author}` : '');
+    $('results').appendChild(row);
+  });
+
+  $('recent').innerHTML = recent.map(v => {
+    const t = new Date(v.voted_at).toLocaleTimeString('ko-KR');
+    return `${t} — ${entryNames[v.entry_id] || v.entry_id}`;
+  }).join('<br>') || '아직 투표 기록이 없습니다.';
+
+  updateStatusUI();
+  $('updated').textContent = `마지막 갱신 ${new Date().toLocaleTimeString('ko-KR')}`;
+}
+
+function updateStatusUI() {
+  const pill = $('status-pill');
+  pill.className = 'pill ' + (isOpen ? 'open' : 'closed');
+  pill.textContent = isOpen ? '투표 진행 중' : '투표 마감됨';
+  const btn = $('toggle-btn');
+  btn.className = isOpen ? 'to-close' : 'to-open';
+  btn.textContent = isOpen ? '투표 마감하기' : '투표 다시 열기';
+}
+
+async function login() {
+  const input = $('pass-input').value.trim();
+  if (!input) return;
+  pass = input;
+  $('login-err').textContent = '';
+  try {
+    await sbPost('rpc/contest_get_results', { pass });
+    sessionStorage.setItem('best3_admin_pass', pass);
+    $('login').classList.add('hidden');
+    $('dash').classList.remove('hidden');
+    await refresh();
+    timer = setInterval(() => refresh().catch(() => {}), 3000);
+  } catch (e) {
+    $('login-err').textContent = (e.body || '').includes('INVALID_PASS')
+      ? '비밀번호가 올바르지 않습니다.' : '연결에 실패했습니다. (DB 세팅 확인)';
+  }
+}
+
+$('login-btn').addEventListener('click', login);
+$('pass-input').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+$('toggle-btn').addEventListener('click', async () => {
+  const next = !isOpen;
+  if (next === false && !confirm('투표를 마감할까요? 마감 후에는 참여자가 투표할 수 없습니다.')) return;
+  try {
+    isOpen = await sbPost('rpc/contest_set_open', { pass, open_state: next });
+    updateStatusUI();
+    refresh().catch(() => {});
+  } catch (e) {
+    alert('처리에 실패했습니다. 다시 시도해주세요.');
+  }
+});
+
+// 세션에 비밀번호가 남아있으면 자동 입장
+if (pass) { $('pass-input').value = pass; login(); }
+</script>
+</body>
+</html>

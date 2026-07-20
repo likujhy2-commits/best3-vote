@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>참여후기 공모전 BEST 3 투표</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    background: #f4f2fb;
+    color: #1f1b33;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; min-height: 100%; padding: 24px 20px 120px; }
+
+  header { text-align: center; padding: 12px 0 24px; }
+  .badge {
+    display: inline-block; background: #ece7ff; color: #5b3df5;
+    font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 999px; margin-bottom: 12px;
+  }
+  h1 { font-size: 24px; font-weight: 800; line-height: 1.35; }
+  .sub { margin-top: 8px; font-size: 14px; color: #6d6788; }
+
+  /* 실시간 참여 표시 */
+  .live-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    margin-top: 14px; padding: 8px 16px; border-radius: 999px;
+    background: #fff; border: 1.5px solid #e6e2f5;
+    font-size: 13.5px; font-weight: 600; color: #4a4562;
+  }
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #f43f5e;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(244,63,94,.4); }
+    50% { transform: scale(1.15); opacity: .85; box-shadow: 0 0 0 6px rgba(244,63,94,0); }
+  }
+  .live-pill b { color: #5b3df5; font-variant-numeric: tabular-nums; }
+  .live-pill b.bump { animation: bump .4s ease; display: inline-block; }
+  @keyframes bump { 30% { transform: scale(1.35); color: #f43f5e; } }
+
+  .card {
+    background: #fff; border: 2px solid #e6e2f5; border-radius: 16px;
+    padding: 18px; margin-bottom: 14px; cursor: pointer;
+    transition: border-color .15s, box-shadow .15s, transform .1s;
+  }
+  .card:active { transform: scale(.985); }
+  .card.selected { border-color: #5b3df5; box-shadow: 0 4px 16px rgba(91,61,245,.15); }
+  .card img { width: 100%; border-radius: 10px; margin-bottom: 12px; display: block; }
+  .card-top { display: flex; align-items: center; gap: 10px; }
+  .num {
+    flex: none; width: 32px; height: 32px; border-radius: 10px;
+    background: #f0edfc; color: #5b3df5; font-weight: 800; font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .card.selected .num { background: #5b3df5; color: #fff; }
+  .card h2 { font-size: 17px; font-weight: 700; line-height: 1.3; }
+  .author { font-size: 12.5px; color: #8a84a3; margin-top: 2px; }
+  .desc { margin-top: 10px; font-size: 14px; line-height: 1.6; color: #4a4562; }
+  .check { flex: none; margin-left: auto; width: 24px; height: 24px; border-radius: 50%;
+    border: 2px solid #d9d4ec; transition: all .15s; }
+  .card.selected .check { border-color: #5b3df5; background: #5b3df5 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>') center no-repeat; }
+
+  .votebar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+    background: linear-gradient(transparent, #f4f2fb 30%);
+  }
+  .votebar-inner { max-width: 480px; margin: 0 auto; }
+  button.primary {
+    width: 100%; padding: 16px; border: 0; border-radius: 14px;
+    background: #5b3df5; color: #fff; font-size: 17px; font-weight: 700;
+    font-family: inherit; cursor: pointer; transition: opacity .15s;
+  }
+  button.primary:disabled { background: #c9c3e2; cursor: default; }
+
+  /* 상태 화면 (완료 / 마감 / 오류) */
+  .status-screen { text-align: center; padding: 90px 20px 40px; }
+  .status-emoji { font-size: 64px; }
+  .status-screen h1 { margin-top: 20px; font-size: 23px; }
+  .status-screen p { margin-top: 12px; font-size: 15px; color: #6d6788; line-height: 1.6; }
+  .stamp { display: inline-block; animation: pop .55s cubic-bezier(.2,1.5,.4,1); }
+  @keyframes pop { from { transform: scale(.2) rotate(-12deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+
+  .live-count-card {
+    margin: 26px auto 0; max-width: 300px;
+    background: #fff; border: 1.5px solid #e6e2f5; border-radius: 16px;
+    padding: 18px;
+  }
+  .live-count-card .label {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 600; color: #6d6788;
+  }
+  .live-count-card .big {
+    margin-top: 6px; font-size: 38px; font-weight: 800; color: #5b3df5;
+    font-variant-numeric: tabular-nums;
+  }
+  .live-count-card .big.bump { animation: bump .4s ease; }
+  .live-count-card .unit { font-size: 16px; color: #6d6788; font-weight: 600; }
+
+  .final-count { margin-top: 18px; font-size: 17px; font-weight: 700; color: #5b3df5; }
+
+  .spinner {
+    width: 36px; height: 36px; margin: 120px auto 0;
+    border: 4px solid #e6e2f5; border-top-color: #5b3df5; border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 확인 모달 */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(31,27,51,.5);
+    display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 10;
+  }
+  .modal {
+    background: #fff; border-radius: 18px; padding: 26px 22px; max-width: 340px; width: 100%;
+    text-align: center;
+  }
+  .modal h3 { font-size: 18px; line-height: 1.45; }
+  .modal p { margin-top: 10px; font-size: 14px; color: #6d6788; }
+  .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+  .modal-btns button {
+    flex: 1; padding: 13px; border: 0; border-radius: 12px;
+    font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer;
+  }
+  .btn-cancel { background: #f0edfc; color: #5b3df5; }
+  .btn-confirm { background: #5b3df5; color: #fff; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="loading" class="spinner"></div>
+
+  <div id="vote-screen" class="hidden">
+    <header>
+      <div class="badge">참여후기 공모전 BEST 3</div>
+      <h1>최고의 후기에<br>한 표를 보내주세요!</h1>
+      <div class="sub">작품을 선택한 뒤 투표하기를 눌러주세요 · 1인 1표</div>
+      <div class="live-pill"><span class="live-dot"></span>실시간 투표 진행 중 · <b id="live-count-vote">-</b>명 참여</div>
+    </header>
+    <div id="entries"></div>
+  </div>
+
+  <div id="done-screen" class="status-screen hidden">
+    <div class="status-emoji stamp">🗳️</div>
+    <h1>투표가 완료되었습니다!</h1>
+    <p>소중한 한 표 감사합니다.<br>결과는 잠시 후 사회자가 발표할 예정이에요 🎉</p>
+    <div class="live-count-card">
+      <div class="label"><span class="live-dot"></span>실시간 투표 진행 중</div>
+      <div class="big" id="live-count-done">-<span class="unit"> 명 참여</span></div>
+    </div>
+  </div>
+
+  <div id="closed-screen" class="status-screen hidden">
+    <div class="status-emoji stamp">🏁</div>
+    <h1>투표가 마감되었습니다!</h1>
+    <p>모든 투표가 집계되었어요.<br>잠시 후 결과 발표가 시작됩니다 🎉</p>
+    <div class="final-count" id="final-count"></div>
+  </div>
+
+  <div id="error-screen" class="status-screen hidden">
+    <div class="status-emoji">😢</div>
+    <h1>연결에 문제가 생겼어요</h1>
+    <p>새로고침 후 다시 시도해주세요.</p>
+  </div>
+
+</div>
+
+<div id="votebar" class="votebar hidden">
+  <div class="votebar-inner">
+    <button id="vote-btn" class="primary" disabled>작품을 선택해주세요</button>
+  </div>
+</div>
+
+<div id="confirm-modal" class="modal-bg hidden">
+  <div class="modal">
+    <h3 id="confirm-title"></h3>
+    <p>투표 후에는 변경할 수 없어요.</p>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="cancel-btn">다시 선택</button>
+      <button class="btn-confirm" id="confirm-btn">투표하기</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+const VOTED_KEY = 'best3_voted';
+const DEVICE_KEY = 'best3_device_id';
+const POLL_MS = 3000;
+let entries = [];
+let selectedId = null;
+let currentScreen = 'loading';
+let lastTotal = null;
+let pollTimer = null;
+
+function show(id) {
+  currentScreen = id;
+  ['loading','vote-screen','done-screen','closed-screen','error-screen'].forEach(s =>
+    document.getElementById(s).classList.toggle('hidden', s !== id));
+  document.getElementById('votebar').classList.toggle('hidden', id !== 'vote-screen');
+}
+
+function getDeviceId() {
+  let id = localStorage.getItem(DEVICE_KEY);
+  if (!id) {
+    id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(DEVICE_KEY, id);
+  }
+  return id;
+}
+
+// 감사(audit)용 간이 기기 지문 — 차단 기준이 아니라 기록용
+function getFingerprint() {
+  const raw = [navigator.userAgent, navigator.language, screen.width, screen.height,
+    screen.colorDepth, Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.platform].join('|');
+  let h = 0;
+  for (let i = 0; i < raw.length; i++) { h = (h * 31 + raw.charCodeAt(i)) | 0; }
+  return `fp_${(h >>> 0).toString(16)}`;
+}
+
+/* ---------- 실시간 상태 (참여 수 + 마감 감지) ---------- */
+
+function bumpCount(el, value) {
+  if (el.dataset.value === String(value)) return;
+  el.dataset.value = String(value);
+  el.firstChild.textContent = value;      // 숫자 텍스트만 교체 (단위 span 유지)
+  el.classList.remove('bump');
+  void el.offsetWidth;                    // 애니메이션 재시작 트릭
+  el.classList.add('bump');
+}
+
+function applyState(state) {
+  if (!state) return;
+  lastTotal = state.total;
+
+  const voteCount = document.getElementById('live-count-vote');
+  voteCount.textContent = state.total;
+
+  bumpCount(document.getElementById('live-count-done'), state.total);
+
+  if (state.is_open === false) {
+    if (currentScreen === 'vote-screen' || currentScreen === 'done-screen') {
+      document.getElementById('final-count').textContent = `총 ${state.total}명이 참여했습니다`;
+      show('closed-screen');
+    }
+  } else if (currentScreen === 'closed-screen') {
+    location.reload();                    // 리허설 등으로 다시 열리면 처음부터
+  }
+}
+
+function startPolling() {
+  if (pollTimer) return;
+  const tick = async () => {
+    try { applyState(await sbPost('rpc/contest_public_state', {})); } catch (e) {}
+  };
+  // 300명이 동시에 같은 박자로 요청하지 않도록 시작 시점을 살짝 분산
+  setTimeout(() => { tick(); pollTimer = setInterval(tick, POLL_MS); }, Math.random() * 1500);
+}
+
+/* ---------- 투표 화면 ---------- */
+
+function renderEntries(list) {
+  entries = list;
+  const box = document.getElementById('entries');
+  box.innerHTML = '';
+  list.forEach((e, i) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.id = e.id;
+    card.innerHTML = `
+      ${e.image_url ? `<img src="${e.image_url}" alt="">` : ''}
+      <div class="card-top">
+        <div class="num">${i + 1}</div>
+        <div>
+          <h2></h2>
+          <div class="author"></div>
+        </div>
+        <div class="check"></div>
+      </div>
+      <div class="desc"></div>`;
+    card.querySelector('h2').textContent = e.title;
+    card.querySelector('.author').textContent = e.author || '';
+    card.querySelector('.desc').textContent = e.description || '';
+    card.addEventListener('click', () => selectEntry(e.id));
+    box.appendChild(card);
+  });
+  show('vote-screen');
+}
+
+function selectEntry(id) {
+  selectedId = id;
+  document.querySelectorAll('.card').forEach(c =>
+    c.classList.toggle('selected', Number(c.dataset.id) === id));
+  const btn = document.getElementById('vote-btn');
+  btn.disabled = false;
+  btn.textContent = '투표하기';
+}
+
+async function submitVote() {
+  const btn = document.getElementById('confirm-btn');
+  btn.disabled = true;
+  btn.textContent = '저장 중...';
+  try {
+    await sbPost('contest_votes', {
+      entry_id: selectedId,
+      device_id: getDeviceId(),
+      fingerprint: getFingerprint(),
+    });
+    localStorage.setItem(VOTED_KEY, '1');
+    if (lastTotal !== null) bumpCount(document.getElementById('live-count-done'), lastTotal + 1);
+    show('done-screen');
+  } catch (err) {
+    if (err.status === 409) {           // 이미 이 기기로 투표됨
+      localStorage.setItem(VOTED_KEY, '1');
+      show('done-screen');
+    } else if (err.status === 403 || err.status === 401) {  // 투표 마감 (RLS 거부)
+      document.getElementById('final-count').textContent = lastTotal !== null ? `총 ${lastTotal}명이 참여했습니다` : '';
+      show('closed-screen');
+    } else {
+      show('error-screen');
+    }
+  } finally {
+    document.getElementById('confirm-modal').classList.add('hidden');
+    btn.disabled = false;
+    btn.textContent = '투표하기';
+  }
+}
+
+document.getElementById('vote-btn').addEventListener('click', () => {
+  if (!selectedId) return;
+  const entry = entries.find(e => e.id === selectedId);
+  document.getElementById('confirm-title').textContent = `'${entry.title}'에 투표할까요?`;
+  document.getElementById('confirm-modal').classList.remove('hidden');
+});
+document.getElementById('cancel-btn').addEventListener('click', () =>
+  document.getElementById('confirm-modal').classList.add('hidden'));
+document.getElementById('confirm-btn').addEventListener('click', submitVote);
+
+async function init() {
+  try {
+    const state = await sbPost('rpc/contest_public_state', {});
+    lastTotal = state.total;
+
+    if (localStorage.getItem(VOTED_KEY)) {
+      show(state.is_open === false ? 'closed-screen' : 'done-screen');
+      if (state.is_open === false) {
+        document.getElementById('final-count').textContent = `총 ${state.total}명이 참여했습니다`;
+      } else {
+        bumpCount(document.getElementById('live-count-done'), state.total);
+      }
+      startPolling();                     // 마감 상태여도 폴링 유지 → 재오픈 시 자동 복귀
+      return;
+    }
+
+    if (state.is_open === false) {
+      document.getElementById('final-count').textContent = `총 ${state.total}명이 참여했습니다`;
+      show('closed-screen');
+      startPolling();
+      return;
+    }
+
+    const list = await sbGet('contest_entries?select=*&order=sort_order');
+    if (!list.length) { show('error-screen'); return; }
+    renderEntries(list);
+    document.getElementById('live-count-vote').textContent = state.total;
+    startPolling();
+  } catch (e) {
+    show('error-screen');
+  }
+}
+init();
+</script>
+</body>
+</html>
