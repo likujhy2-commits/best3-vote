@@ -42,6 +42,13 @@
   .live-pill b.bump { animation: bump .4s ease; display: inline-block; }
   @keyframes bump { 30% { transform: scale(1.35); color: #f43f5e; } }
 
+  /* 작품 소개 뷰어 열기 버튼 */
+  .intro-btn {
+    display: block; width: 100%; margin: 16px auto 0; padding: 14px;
+    border: 2px solid #5b3df5; border-radius: 14px; background: #fff; color: #5b3df5;
+    font-size: 15.5px; font-weight: 700; font-family: inherit; cursor: pointer;
+  }
+
   .card {
     background: #fff; border: 2px solid #e6e2f5; border-radius: 16px;
     padding: 18px; margin-bottom: 14px; cursor: pointer;
@@ -49,7 +56,6 @@
   }
   .card:active { transform: scale(.985); }
   .card.selected { border-color: #5b3df5; box-shadow: 0 4px 16px rgba(91,61,245,.15); }
-  .card img { width: 100%; border-radius: 10px; margin-bottom: 12px; display: block; }
   .card-top { display: flex; align-items: center; gap: 10px; }
   .num {
     flex: none; width: 32px; height: 32px; border-radius: 10px;
@@ -57,6 +63,12 @@
     display: flex; align-items: center; justify-content: center;
   }
   .card.selected .num { background: #5b3df5; color: #fff; }
+  .thumb { flex: none; width: 46px; height: 46px; border-radius: 10px; object-fit: cover; }
+  .view-btn {
+    margin-top: 12px; display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border: 0; border-radius: 999px; background: #f0edfc; color: #5b3df5;
+    font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;
+  }
   .card h2 { font-size: 17px; font-weight: 700; line-height: 1.3; }
   .author { font-size: 12.5px; color: #8a84a3; margin-top: 2px; }
   .desc { margin-top: 10px; font-size: 14px; line-height: 1.6; color: #4a4562; }
@@ -110,6 +122,44 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* 작품 소개 뷰어 (전체 화면) */
+  #viewer {
+    position: fixed; inset: 0; background: #17142a; z-index: 20;
+    display: flex; flex-direction: column;
+  }
+  .viewer-head {
+    flex: none; display: flex; align-items: center; gap: 10px;
+    padding: calc(12px + env(safe-area-inset-top)) 14px 12px;
+  }
+  .viewer-badge {
+    flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0;
+    background: #252043; border-radius: 999px; padding: 10px 16px;
+  }
+  .viewer-badge .idx { flex: none; font-size: 12px; font-weight: 800; color: #a794ff; }
+  .viewer-badge .t {
+    font-size: 14.5px; font-weight: 700; color: #fff;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .viewer-badge .a { flex: none; font-size: 12px; color: #9a94b8; }
+  #viewer-close {
+    flex: none; width: 38px; height: 38px; border-radius: 50%; border: 0;
+    background: #252043; color: #fff; font-size: 15px; cursor: pointer; font-family: inherit;
+  }
+  .viewer-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .viewer-body img { width: 100%; display: block; }
+  .viewer-empty { color: #9a94b8; text-align: center; padding: 100px 20px; font-size: 15px; }
+  .viewer-nav {
+    flex: none; display: flex; gap: 10px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+  .viewer-nav button {
+    flex: 1; padding: 14px; border: 0; border-radius: 12px;
+    font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+  #viewer-prev { background: #252043; color: #cfc9ee; }
+  #viewer-prev:disabled { opacity: .35; cursor: default; }
+  #viewer-next { background: #5b3df5; color: #fff; }
+
   /* 확인 모달 */
   .modal-bg {
     position: fixed; inset: 0; background: rgba(31,27,51,.5);
@@ -142,6 +192,7 @@
       <h1>최고의 후기에<br>한 표를 보내주세요!</h1>
       <div class="sub">작품을 선택한 뒤 투표하기를 눌러주세요 · 1인 1표</div>
       <div class="live-pill"><span class="live-dot"></span>실시간 투표 진행 중 · <b id="live-count-vote">-</b>명 참여</div>
+      <button class="intro-btn" id="intro-btn" type="button">📖 작품 소개 먼저 보기</button>
     </header>
     <div id="entries"></div>
   </div>
@@ -151,6 +202,7 @@
     <h1>투표 시작 전입니다</h1>
     <p>곧 투표가 시작돼요!<br>화면을 켜둔 채 잠시만 기다려주세요.</p>
     <div class="live-pill" style="margin-top:22px"><span class="live-dot"></span>시작되면 화면이 자동으로 바뀝니다</div>
+    <button class="intro-btn" id="waiting-intro-btn" type="button" style="max-width:280px">📖 기다리는 동안 작품 미리 보기</button>
   </div>
 
   <div id="done-screen" class="status-screen hidden">
@@ -181,6 +233,22 @@
 <div id="votebar" class="votebar hidden">
   <div class="votebar-inner">
     <button id="vote-btn" class="primary" disabled>작품을 선택해주세요</button>
+  </div>
+</div>
+
+<div id="viewer" class="hidden">
+  <div class="viewer-head">
+    <div class="viewer-badge">
+      <span class="idx" id="viewer-idx"></span>
+      <span class="t" id="viewer-title"></span>
+      <span class="a" id="viewer-author"></span>
+    </div>
+    <button id="viewer-close" aria-label="닫기">✕</button>
+  </div>
+  <div class="viewer-body" id="viewer-body"></div>
+  <div class="viewer-nav">
+    <button id="viewer-prev">← 이전 작품</button>
+    <button id="viewer-next">다음 작품 →</button>
   </div>
 </div>
 
@@ -269,6 +337,7 @@ function applyState(state) {
   if (status === 'closed') {
     if (['vote-screen', 'done-screen', 'waiting-screen'].includes(currentScreen)) {
       document.getElementById('confirm-modal').classList.add('hidden');
+      closeViewer();
       document.getElementById('final-count').textContent = `총 ${state.total}명이 참여했습니다`;
       show('closed-screen');
     }
@@ -290,6 +359,62 @@ function startPolling() {
   setTimeout(() => { tick(); pollTimer = setInterval(tick, POLL_MS); }, Math.random() * 1500);
 }
 
+/* ---------- 작품 소개 뷰어 ---------- */
+
+// 작품 원고: works/{작품id}/{1..페이지수}.jpg  (0이면 준비 중 표시)
+const WORK_PAGES = { 1: 10, 2: 0, 3: 0 };
+let viewerPos = 0;
+
+function openViewer(entryId) {
+  if (!entries.length) return;
+  viewerPos = Math.max(0, entries.findIndex(e => e.id === entryId));
+  renderViewerWork();
+  document.getElementById('viewer').classList.remove('hidden');
+}
+
+function closeViewer() {
+  document.getElementById('viewer').classList.add('hidden');
+}
+
+function renderViewerWork() {
+  const e = entries[viewerPos];
+  const pages = WORK_PAGES[e.id] || 0;
+  document.getElementById('viewer-idx').textContent = `${viewerPos + 1}/${entries.length}`;
+  document.getElementById('viewer-title').textContent = e.title;
+  document.getElementById('viewer-author').textContent = e.author || '';
+
+  const body = document.getElementById('viewer-body');
+  body.innerHTML = '';
+  if (!pages) {
+    body.innerHTML = '<div class="viewer-empty">이 작품의 원고를 준비 중이에요 🎨</div>';
+  } else {
+    for (let n = 1; n <= pages; n++) {
+      const img = document.createElement('img');
+      img.src = `works/${e.id}/${n}.jpg`;
+      img.loading = n <= 2 ? 'eager' : 'lazy';
+      img.alt = `${e.title} ${n}페이지`;
+      body.appendChild(img);
+    }
+  }
+  body.scrollTop = 0;
+
+  document.getElementById('viewer-prev').disabled = viewerPos === 0;
+  document.getElementById('viewer-next').textContent = viewerPos === entries.length - 1
+    ? (currentScreen === 'vote-screen' ? '투표하러 가기 🗳️' : '닫기')
+    : '다음 작품 →';
+}
+
+document.getElementById('viewer-close').addEventListener('click', closeViewer);
+document.getElementById('viewer-prev').addEventListener('click', () => {
+  if (viewerPos > 0) { viewerPos--; renderViewerWork(); }
+});
+document.getElementById('viewer-next').addEventListener('click', () => {
+  if (viewerPos < entries.length - 1) { viewerPos++; renderViewerWork(); }
+  else closeViewer();
+});
+document.getElementById('intro-btn').addEventListener('click', () => openViewer(null));
+document.getElementById('waiting-intro-btn').addEventListener('click', () => openViewer(null));
+
 /* ---------- 투표 화면 ---------- */
 
 function renderEntries(list) {
@@ -297,24 +422,28 @@ function renderEntries(list) {
   const box = document.getElementById('entries');
   box.innerHTML = '';
   list.forEach((e, i) => {
+    const pages = WORK_PAGES[e.id] || 0;
     const card = document.createElement('div');
     card.className = 'card';
     card.dataset.id = e.id;
     card.innerHTML = `
-      ${e.image_url ? `<img src="${e.image_url}" alt="">` : ''}
       <div class="card-top">
         <div class="num">${i + 1}</div>
-        <div>
+        ${pages ? `<img class="thumb" src="works/${e.id}/1.jpg" alt="">` : ''}
+        <div style="min-width:0">
           <h2></h2>
           <div class="author"></div>
         </div>
         <div class="check"></div>
       </div>
-      <div class="desc"></div>`;
+      <div class="desc"></div>
+      ${pages ? '<button class="view-btn" type="button">📖 작품 전체 보기</button>' : ''}`;
     card.querySelector('h2').textContent = e.title;
     card.querySelector('.author').textContent = e.author || '';
     card.querySelector('.desc').textContent = e.description || '';
     card.addEventListener('click', () => selectEntry(e.id));
+    const vb = card.querySelector('.view-btn');
+    if (vb) vb.addEventListener('click', ev => { ev.stopPropagation(); openViewer(e.id); });
     box.appendChild(card);
   });
   show('vote-screen');
@@ -388,7 +517,13 @@ async function init() {
       return;
     }
 
-    if (status === 'waiting') { show('waiting-screen'); startPolling(); return; }
+    if (status === 'waiting') {
+      // 대기 중에도 작품 미리 보기가 가능하도록 목록을 받아둠
+      try { entries = await sbGet('contest_entries?select=*&order=sort_order'); } catch (e) {}
+      show('waiting-screen');
+      startPolling();
+      return;
+    }
 
     if (status === 'closed') {
       document.getElementById('final-count').textContent = `총 ${state.total}명이 참여했습니다`;
