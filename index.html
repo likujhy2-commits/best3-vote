@@ -379,8 +379,14 @@ function startPolling() {
 
 /* ---------- 작품 소개 뷰어 ---------- */
 
-// 작품 원고: works/{작품id}/{1..페이지수}.jpg  (0이면 준비 중 표시)
-const WORK_PAGES = { 1: 10, 2: 0, 3: 4 };
+// 작품 미디어 설정
+//  - pages: works/{작품id}/{1..n}.jpg 를 옆으로 넘기며 감상
+//  - video: works/{작품id}/video.mp4 재생 (1.jpg가 썸네일 겸 포스터)
+const WORK_MEDIA = {
+  1: { type: 'pages', pages: 10 },
+  2: { type: 'video' },
+  3: { type: 'pages', pages: 4 },
+};
 const INTRO_SEEN_KEY = 'best3_intro_seen_round';   // 이 회차의 강제 관람을 마쳤는지
 let viewerPos = 0;
 let viewerForced = false;                          // 첫 접속 강제 관람 모드 (닫기 버튼 숨김)
@@ -404,27 +410,40 @@ function closeViewer() {
 
 function renderViewerWork() {
   const e = entries[viewerPos];
-  const pages = WORK_PAGES[e.id] || 0;
+  const media = WORK_MEDIA[e.id] || null;
   document.getElementById('viewer-idx').textContent = `${viewerPos + 1}/${entries.length}`;
   document.getElementById('viewer-title').textContent = e.title;
   document.getElementById('viewer-author').textContent = e.author || '';
 
   const body = document.getElementById('viewer-body');
   const hint = document.getElementById('viewer-hint');
+  const hintText = hint.querySelector('span');
   const pageNum = document.getElementById('viewer-page');
-  body.innerHTML = '';
+  body.innerHTML = '';                              // 이전 작품(재생 중 영상 포함) 제거
 
   const pager = document.createElement('div');
   pager.className = 'pager';
 
-  if (!pages) {
-    hint.style.visibility = 'hidden';
+  if (media && media.type === 'video') {
+    hint.style.visibility = '';
+    hintText.textContent = '▶️ 재생 버튼을 눌러 감상하세요';
+    pageNum.textContent = '';
     const page = document.createElement('div');
     page.className = 'page';
-    page.innerHTML = '<div class="viewer-empty">이 작품은 준비 중이에요 🎨<br>다음 작품으로 넘어가주세요!</div>';
+    const video = document.createElement('video');
+    video.src = `works/${e.id}/video.mp4`;
+    video.poster = `works/${e.id}/1.jpg`;
+    video.controls = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+    video.style.maxWidth = '100%';
+    video.style.maxHeight = '100%';
+    page.appendChild(video);
     pager.appendChild(page);
-  } else {
+  } else if (media && media.type === 'pages' && media.pages > 0) {
+    const pages = media.pages;
     hint.style.visibility = '';
+    hintText.textContent = '👈 옆으로 넘기며 감상하세요';
     pageNum.textContent = `1 / ${pages}`;
     for (let n = 1; n <= pages; n++) {
       const page = document.createElement('div');
@@ -441,6 +460,12 @@ function renderViewerWork() {
       const p = Math.min(pages, Math.max(1, Math.round(pager.scrollLeft / pager.clientWidth) + 1));
       pageNum.textContent = `${p} / ${pages}`;
     }, { passive: true });
+  } else {
+    hint.style.visibility = 'hidden';
+    const page = document.createElement('div');
+    page.className = 'page';
+    page.innerHTML = '<div class="viewer-empty">이 작품은 준비 중이에요 🎨<br>다음 작품으로 넘어가주세요!</div>';
+    pager.appendChild(page);
   }
 
   body.appendChild(pager);
@@ -470,14 +495,16 @@ function renderEntries(list) {
   const box = document.getElementById('entries');
   box.innerHTML = '';
   list.forEach((e, i) => {
-    const pages = WORK_PAGES[e.id] || 0;
+    const media = WORK_MEDIA[e.id];
+    const hasMedia = !!(media && (media.type === 'video' || (media.type === 'pages' && media.pages > 0)));
+    const viewLabel = media && media.type === 'video' ? '🎬 영상 보기' : '📖 작품 전체 보기';
     const card = document.createElement('div');
     card.className = 'card';
     card.dataset.id = e.id;
     card.innerHTML = `
       <div class="card-top">
         <div class="num">${i + 1}</div>
-        ${pages ? `<img class="thumb" src="works/${e.id}/1.jpg" alt="">` : ''}
+        ${hasMedia ? `<img class="thumb" src="works/${e.id}/1.jpg" alt="">` : ''}
         <div style="min-width:0">
           <h2></h2>
           <div class="author"></div>
@@ -485,7 +512,7 @@ function renderEntries(list) {
         <div class="check"></div>
       </div>
       <div class="desc"></div>
-      ${pages ? '<button class="view-btn" type="button">📖 작품 전체 보기</button>' : ''}`;
+      ${hasMedia ? `<button class="view-btn" type="button">${viewLabel}</button>` : ''}`;
     card.querySelector('h2').textContent = e.title;
     card.querySelector('.author').textContent = e.author || '';
     card.querySelector('.desc').textContent = e.description || '';
