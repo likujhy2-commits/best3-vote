@@ -155,8 +155,9 @@
   .viewer-body { flex: 1; min-height: 0; position: relative; }
   /* 책 앱처럼 스와이프를 유도하는 손가락 모션 (첫 스와이프 후 사라짐) */
   .swipe-guide {
-    position: absolute; top: 50%; right: 14px; z-index: 2; pointer-events: none;
-    font-size: 44px; text-shadow: 0 2px 12px rgba(0,0,0,.55);
+    position: absolute; top: 50%; right: 16px; z-index: 2; pointer-events: none;
+    font-size: 40px; font-weight: 700; color: rgba(255,255,255,.92);
+    text-shadow: 0 2px 14px rgba(0,0,0,.6);
     animation: swipe-nudge 1.8s ease-in-out infinite;
   }
   @keyframes swipe-nudge {
@@ -475,7 +476,7 @@ function renderViewerWork() {
     if (pages > 1) {
       guide = document.createElement('div');
       guide.className = 'swipe-guide';
-      guide.textContent = '👈';
+      guide.textContent = '❮';
       body.appendChild(guide);
     }
     // 옆으로 넘길 때마다 페이지 번호 갱신
