@@ -459,7 +459,7 @@ function renderViewerWork() {
   } else if (media && media.type === 'pages' && media.pages > 0) {
     const pages = media.pages;
     hint.style.visibility = '';
-    hintText.textContent = '오른쪽으로 슬라이드해서 감상하세요';
+    hintText.textContent = '왼쪽으로 밀어서 감상하세요';
     pageNum.textContent = `1 / ${pages}`;
     for (let n = 1; n <= pages; n++) {
       const page = document.createElement('div');
