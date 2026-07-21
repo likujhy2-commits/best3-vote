@@ -63,6 +63,13 @@
   #toggle-btn.to-close { background: #7a2433; color: #fff; }
   #toggle-btn.to-open { background: #1d5c3d; color: #fff; }
 
+  .reset-zone { margin-top: 36px; padding-top: 18px; border-top: 1px dashed #3a3560; text-align: center; }
+  .reset-zone p { font-size: 12.5px; color: #7f79a0; margin-bottom: 10px; }
+  #reset-btn {
+    padding: 10px 18px; font-size: 13.5px; font-weight: 700; font-family: inherit;
+    border: 1.5px solid #7a2433; border-radius: 10px; background: transparent; color: #ff8f8f; cursor: pointer;
+  }
+
   .recent { margin-top: 32px; }
   .recent h2 { font-size: 14px; color: #9a94b8; font-weight: 700; }
   .recent-list { margin-top: 10px; font-size: 13px; color: #7f79a0; line-height: 1.9; font-variant-numeric: tabular-nums; }
@@ -104,6 +111,11 @@
     <div class="recent">
       <h2>최근 투표 기록 (최근 30건 · 시간 패턴 확인용)</h2>
       <div class="recent-list" id="recent"></div>
+    </div>
+
+    <div class="reset-zone">
+      <p>리허설이 끝나면 초기화하세요. 테스트에 참여했던 기기도 다시 투표할 수 있게 됩니다.</p>
+      <button id="reset-btn">🗑️ 투표 기록 전체 초기화</button>
     </div>
 
     <div class="updated" id="updated"></div>
@@ -196,6 +208,18 @@ $('toggle-btn').addEventListener('click', async () => {
     refresh().catch(() => {});
   } catch (e) {
     alert('처리에 실패했습니다. 다시 시도해주세요.');
+  }
+});
+
+$('reset-btn').addEventListener('click', async () => {
+  if (!confirm('모든 투표 기록을 삭제할까요?\n(리허설 → 본행사 전환용. 테스트했던 기기도 다시 투표 가능해집니다)')) return;
+  if (!confirm('정말 초기화합니다. 되돌릴 수 없어요!')) return;
+  try {
+    await sbPost('rpc/contest_reset', { pass });
+    await refresh();
+    alert('초기화 완료! 참여자 화면도 자동으로 처음부터 시작됩니다.');
+  } catch (e) {
+    alert('초기화에 실패했습니다. 다시 시도해주세요.');
   }
 });
 

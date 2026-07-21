@@ -190,14 +190,20 @@
 
 <script src="config.js"></script>
 <script>
-const VOTED_KEY = 'best3_voted';
+const VOTED_ROUND_KEY = 'best3_voted_round';   // 몇 회차에 투표했는지 (초기화 시 회차가 바뀌어 자동 무효화)
 const DEVICE_KEY = 'best3_device_id';
 const POLL_MS = 3000;
 let entries = [];
 let selectedId = null;
 let currentScreen = 'loading';
 let lastTotal = null;
+let currentRound = null;
 let pollTimer = null;
+let memDeviceId = null;                        // localStorage를 못 쓰는 환경 대비
+
+// 일부 구형 기기의 사생활 보호 모드에서 localStorage 접근이 예외를 던지는 것 대비
+function lsGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+function lsSet(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
 
 function show(id) {
   currentScreen = id;
@@ -207,10 +213,11 @@ function show(id) {
 }
 
 function getDeviceId() {
-  let id = localStorage.getItem(DEVICE_KEY);
+  let id = lsGet(DEVICE_KEY) || memDeviceId;
   if (!id) {
     id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    localStorage.setItem(DEVICE_KEY, id);
+    memDeviceId = id;
+    lsSet(DEVICE_KEY, id);
   }
   return id;
 }
@@ -237,6 +244,11 @@ function bumpCount(el, value) {
 
 function applyState(state) {
   if (!state) return;
+  if (currentRound !== null && state.round !== currentRound) {
+    location.reload();                    // 진행자가 초기화함 → 새 회차로 처음부터
+    return;
+  }
+  currentRound = state.round;
   lastTotal = state.total;
 
   const voteCount = document.getElementById('live-count-vote');
@@ -246,6 +258,7 @@ function applyState(state) {
 
   if (state.is_open === false) {
     if (currentScreen === 'vote-screen' || currentScreen === 'done-screen') {
+      document.getElementById('confirm-modal').classList.add('hidden');
       document.getElementById('final-count').textContent = `총 ${state.total}명이 참여했습니다`;
       show('closed-screen');
     }
@@ -312,12 +325,12 @@ async function submitVote() {
       device_id: getDeviceId(),
       fingerprint: getFingerprint(),
     });
-    localStorage.setItem(VOTED_KEY, '1');
+    lsSet(VOTED_ROUND_KEY, String(currentRound));
     if (lastTotal !== null) bumpCount(document.getElementById('live-count-done'), lastTotal + 1);
     show('done-screen');
   } catch (err) {
     if (err.status === 409) {           // 이미 이 기기로 투표됨
-      localStorage.setItem(VOTED_KEY, '1');
+      lsSet(VOTED_ROUND_KEY, String(currentRound));
       show('done-screen');
     } else if (err.status === 403 || err.status === 401) {  // 투표 마감 (RLS 거부)
       document.getElementById('final-count').textContent = lastTotal !== null ? `총 ${lastTotal}명이 참여했습니다` : '';
@@ -346,8 +359,9 @@ async function init() {
   try {
     const state = await sbPost('rpc/contest_public_state', {});
     lastTotal = state.total;
+    currentRound = state.round;
 
-    if (localStorage.getItem(VOTED_KEY)) {
+    if (lsGet(VOTED_ROUND_KEY) === String(state.round)) {
       show(state.is_open === false ? 'closed-screen' : 'done-screen');
       if (state.is_open === false) {
         document.getElementById('final-count').textContent = `총 ${state.total}명이 참여했습니다`;

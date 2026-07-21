@@ -8,6 +8,7 @@
 -- 재실행 대비 초기화
 drop function if exists contest_get_results(text);
 drop function if exists contest_public_state();
+drop function if exists contest_reset(text);
 drop function if exists contest_recent_votes(text);
 drop function if exists contest_set_open(text, boolean);
 drop function if exists contest_is_open();
@@ -38,7 +39,8 @@ create table contest_votes (
 create table contest_settings (
   id int primary key,
   is_open boolean not null default true,
-  admin_pass text not null
+  admin_pass text not null,
+  round int not null default 1          -- 초기화할 때마다 +1, 이전 회차 투표 기기의 재투표 허용용
 );
 
 insert into contest_settings (id, is_open, admin_pass)
@@ -87,7 +89,8 @@ set search_path = public
 as $$
   select json_build_object(
     'is_open', (select is_open from contest_settings where id = 1),
-    'total',   (select count(*) from contest_votes)
+    'total',   (select count(*) from contest_votes),
+    'round',   (select round from contest_settings where id = 1)
   );
 $$;
 
@@ -129,6 +132,22 @@ begin
     from contest_votes v
     order by v.created_at desc
     limit 30;
+end;
+$$;
+
+-- 투표 기록 초기화 (리허설 → 본행사 전환용): 표 전체 삭제 + 회차 증가 + 투표 열기
+create or replace function contest_reset(pass text)
+returns int
+language plpgsql security definer
+set search_path = public
+as $$
+begin
+  if not exists (select 1 from contest_settings s where s.id = 1 and s.admin_pass = pass) then
+    raise exception 'INVALID_PASS';
+  end if;
+  delete from contest_votes where true;  -- where 절 필수 정책(safeupdate) 대응
+  update contest_settings set round = round + 1, is_open = true where id = 1;
+  return (select round from contest_settings where id = 1);
 end;
 $$;
 
