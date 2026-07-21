@@ -146,6 +146,13 @@
     <div id="entries"></div>
   </div>
 
+  <div id="waiting-screen" class="status-screen hidden">
+    <div class="status-emoji stamp">⏳</div>
+    <h1>투표 시작 전입니다</h1>
+    <p>곧 투표가 시작돼요!<br>화면을 켜둔 채 잠시만 기다려주세요.</p>
+    <div class="live-pill" style="margin-top:22px"><span class="live-dot"></span>시작되면 화면이 자동으로 바뀝니다</div>
+  </div>
+
   <div id="done-screen" class="status-screen hidden">
     <div class="status-emoji stamp">🗳️</div>
     <h1>투표가 완료되었습니다!</h1>
@@ -207,7 +214,7 @@ function lsSet(key, value) { try { localStorage.setItem(key, value); } catch (e)
 
 function show(id) {
   currentScreen = id;
-  ['loading','vote-screen','done-screen','closed-screen','error-screen'].forEach(s =>
+  ['loading','vote-screen','waiting-screen','done-screen','closed-screen','error-screen'].forEach(s =>
     document.getElementById(s).classList.toggle('hidden', s !== id));
   document.getElementById('votebar').classList.toggle('hidden', id !== 'vote-screen');
 }
@@ -242,6 +249,10 @@ function bumpCount(el, value) {
   el.classList.add('bump');
 }
 
+function stateStatus(state) {
+  return state.status || (state.is_open === false ? 'closed' : 'open');
+}
+
 function applyState(state) {
   if (!state) return;
   if (currentRound !== null && state.round !== currentRound) {
@@ -250,20 +261,23 @@ function applyState(state) {
   }
   currentRound = state.round;
   lastTotal = state.total;
+  const status = stateStatus(state);
 
-  const voteCount = document.getElementById('live-count-vote');
-  voteCount.textContent = state.total;
-
+  document.getElementById('live-count-vote').textContent = state.total;
   bumpCount(document.getElementById('live-count-done'), state.total);
 
-  if (state.is_open === false) {
-    if (currentScreen === 'vote-screen' || currentScreen === 'done-screen') {
+  if (status === 'closed') {
+    if (['vote-screen', 'done-screen', 'waiting-screen'].includes(currentScreen)) {
       document.getElementById('confirm-modal').classList.add('hidden');
       document.getElementById('final-count').textContent = `총 ${state.total}명이 참여했습니다`;
       show('closed-screen');
     }
-  } else if (currentScreen === 'closed-screen') {
-    location.reload();                    // 리허설 등으로 다시 열리면 처음부터
+  } else if (status === 'open') {
+    // 대기·마감 화면에서 투표가 시작/재개되면 처음부터 (투표 화면으로)
+    if (currentScreen === 'waiting-screen' || currentScreen === 'closed-screen') location.reload();
+  } else if (status === 'waiting') {
+    // 진행자가 다시 대기 상태로 돌린 경우
+    if (currentScreen === 'vote-screen' || currentScreen === 'closed-screen') location.reload();
   }
 }
 
@@ -360,19 +374,23 @@ async function init() {
     const state = await sbPost('rpc/contest_public_state', {});
     lastTotal = state.total;
     currentRound = state.round;
+    const status = stateStatus(state);
 
     if (lsGet(VOTED_ROUND_KEY) === String(state.round)) {
-      show(state.is_open === false ? 'closed-screen' : 'done-screen');
-      if (state.is_open === false) {
+      if (status === 'closed') {
         document.getElementById('final-count').textContent = `총 ${state.total}명이 참여했습니다`;
+        show('closed-screen');
       } else {
         bumpCount(document.getElementById('live-count-done'), state.total);
+        show('done-screen');
       }
-      startPolling();                     // 마감 상태여도 폴링 유지 → 재오픈 시 자동 복귀
+      startPolling();                     // 어떤 상태든 폴링 유지 → 상태 바뀌면 자동 반영
       return;
     }
 
-    if (state.is_open === false) {
+    if (status === 'waiting') { show('waiting-screen'); startPolling(); return; }
+
+    if (status === 'closed') {
       document.getElementById('final-count').textContent = `총 ${state.total}명이 참여했습니다`;
       show('closed-screen');
       startPolling();

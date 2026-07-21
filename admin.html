@@ -36,6 +36,7 @@
   }
   .pill.open { background: #123f2b; color: #4ade80; }
   .pill.closed { background: #461822; color: #ff8f8f; }
+  .pill.waiting { background: #4a3a10; color: #fac775; }
 
   .total-card {
     margin-top: 24px; background: #211d3d; border-radius: 16px; padding: 22px;
@@ -62,6 +63,7 @@
   }
   #toggle-btn.to-close { background: #7a2433; color: #fff; }
   #toggle-btn.to-open { background: #1d5c3d; color: #fff; }
+  #toggle-btn.to-start { background: #1d5c3d; color: #fff; font-size: 17px; padding: 16px; }
 
   .reset-zone { margin-top: 36px; padding-top: 18px; border-top: 1px dashed #3a3560; text-align: center; }
   .reset-zone p { font-size: 12.5px; color: #7f79a0; margin-bottom: 10px; }
@@ -126,18 +128,19 @@
 <script src="config.js"></script>
 <script>
 let pass = sessionStorage.getItem('best3_admin_pass') || '';
-let isOpen = true;
+let status = 'open';    // waiting | open | closed
 let entryNames = {};
 let timer = null;
 
 const $ = id => document.getElementById(id);
 
 async function refresh() {
-  const [results, recent] = await Promise.all([
+  const [results, recent, pub] = await Promise.all([
     sbPost('rpc/contest_get_results', { pass }),
     sbPost('rpc/contest_recent_votes', { pass }),
+    sbPost('rpc/contest_public_state', {}),
   ]);
-  isOpen = await sbPost('rpc/contest_is_open', {});
+  status = pub.status || (pub.is_open === false ? 'closed' : 'open');
 
   const total = results.reduce((s, r) => s + Number(r.vote_count), 0);
   $('total').textContent = total;
@@ -171,11 +174,23 @@ async function refresh() {
 
 function updateStatusUI() {
   const pill = $('status-pill');
-  pill.className = 'pill ' + (isOpen ? 'open' : 'closed');
-  pill.textContent = isOpen ? '투표 진행 중' : '투표 마감됨';
   const btn = $('toggle-btn');
-  btn.className = isOpen ? 'to-close' : 'to-open';
-  btn.textContent = isOpen ? '투표 마감하기' : '투표 다시 열기';
+  if (status === 'waiting') {
+    pill.className = 'pill waiting';
+    pill.textContent = '투표 시작 전';
+    btn.className = 'to-start';
+    btn.textContent = '🚀 투표 시작하기';
+  } else if (status === 'open') {
+    pill.className = 'pill open';
+    pill.textContent = '투표 진행 중';
+    btn.className = 'to-close';
+    btn.textContent = '투표 마감하기';
+  } else {
+    pill.className = 'pill closed';
+    pill.textContent = '투표 마감됨';
+    btn.className = 'to-open';
+    btn.textContent = '투표 다시 열기';
+  }
 }
 
 async function login() {
@@ -200,10 +215,10 @@ $('login-btn').addEventListener('click', login);
 $('pass-input').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
 
 $('toggle-btn').addEventListener('click', async () => {
-  const next = !isOpen;
-  if (next === false && !confirm('투표를 마감할까요? 마감 후에는 참여자가 투표할 수 없습니다.')) return;
+  const next = status === 'open' ? 'closed' : 'open';
+  if (next === 'closed' && !confirm('투표를 마감할까요? 마감 후에는 참여자가 투표할 수 없습니다.')) return;
   try {
-    isOpen = await sbPost('rpc/contest_set_open', { pass, open_state: next });
+    status = await sbPost('rpc/contest_set_status', { pass, new_status: next });
     updateStatusUI();
     refresh().catch(() => {});
   } catch (e) {
@@ -217,7 +232,7 @@ $('reset-btn').addEventListener('click', async () => {
   try {
     await sbPost('rpc/contest_reset', { pass });
     await refresh();
-    alert('초기화 완료! 참여자 화면도 자동으로 처음부터 시작됩니다.');
+    alert("초기화 완료! '시작 전' 상태가 되었습니다.\n🚀 투표 시작하기를 누르면 투표가 열립니다.");
   } catch (e) {
     alert('초기화에 실패했습니다. 다시 시도해주세요.');
   }

@@ -11,6 +11,7 @@ drop function if exists contest_public_state();
 drop function if exists contest_reset(text);
 drop function if exists contest_recent_votes(text);
 drop function if exists contest_set_open(text, boolean);
+drop function if exists contest_set_status(text, text);
 drop function if exists contest_is_open();
 drop table if exists contest_votes;
 drop table if exists contest_entries;
@@ -38,13 +39,14 @@ create table contest_votes (
 -- 운영 설정 (투표 열림/마감 + 관리자 비밀번호)
 create table contest_settings (
   id int primary key,
-  is_open boolean not null default true,
+  status text not null default 'waiting',  -- waiting(시작 전) | open(진행 중) | closed(마감)
+  is_open boolean not null default false,  -- status와 동기화 (구버전 호환용)
   admin_pass text not null,
-  round int not null default 1          -- 초기화할 때마다 +1, 이전 회차 투표 기기의 재투표 허용용
+  round int not null default 1             -- 초기화할 때마다 +1, 이전 회차 투표 기기의 재투표 허용용
 );
 
-insert into contest_settings (id, is_open, admin_pass)
-values (1, true, '1939');
+insert into contest_settings (id, status, is_open, admin_pass)
+values (1, 'waiting', false, '1939');
 
 -- 작품 3개
 insert into contest_entries (id, title, author, description, image_url, sort_order) values
@@ -61,7 +63,7 @@ returns boolean
 language sql security definer stable
 set search_path = public
 as $$
-  select is_open from contest_settings where id = 1;
+  select status = 'open' from contest_settings where id = 1;
 $$;
 
 -- ------------------------------------------------------------
@@ -88,7 +90,8 @@ language sql security definer stable
 set search_path = public
 as $$
   select json_build_object(
-    'is_open', (select is_open from contest_settings where id = 1),
+    'status',  (select status from contest_settings where id = 1),
+    'is_open', (select status = 'open' from contest_settings where id = 1),
     'total',   (select count(*) from contest_votes),
     'round',   (select round from contest_settings where id = 1)
   );
@@ -146,14 +149,14 @@ begin
     raise exception 'INVALID_PASS';
   end if;
   delete from contest_votes where true;  -- where 절 필수 정책(safeupdate) 대응
-  update contest_settings set round = round + 1, is_open = true where id = 1;
+  update contest_settings set round = round + 1, status = 'waiting', is_open = false where id = 1;
   return (select round from contest_settings where id = 1);
 end;
 $$;
 
--- 투표 열기/마감
-create or replace function contest_set_open(pass text, open_state boolean)
-returns boolean
+-- 투표 상태 변경 (시작 전 → 시작 → 마감 → 재개)
+create or replace function contest_set_status(pass text, new_status text)
+returns text
 language plpgsql security definer
 set search_path = public
 as $$
@@ -161,7 +164,10 @@ begin
   if not exists (select 1 from contest_settings s where s.id = 1 and s.admin_pass = pass) then
     raise exception 'INVALID_PASS';
   end if;
-  update contest_settings set is_open = open_state where id = 1;
-  return open_state;
+  if new_status not in ('waiting', 'open', 'closed') then
+    raise exception 'INVALID_STATUS';
+  end if;
+  update contest_settings set status = new_status, is_open = (new_status = 'open') where id = 1;
+  return new_status;
 end;
 $$;
