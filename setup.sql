@@ -22,6 +22,7 @@ create table contest_entries (
   id int primary key,
   title text not null,
   author text,
+  category text,          -- 부문 (디자인부문/영상부문/수기부문)
   description text,
   image_url text,
   sort_order int not null default 0
@@ -49,10 +50,10 @@ insert into contest_settings (id, status, is_open, admin_pass)
 values (1, 'waiting', false, '1939');
 
 -- 작품 3개
-insert into contest_entries (id, title, author, description, image_url, sort_order) values
-  (1, '드림청년 생존일지', '노나은', null, null, 1),
-  (2, '신입은 경력을 어떻게 쌓나요?', '박시온', null, null, 2),
-  (3, '경로를 재탐색합니다.', '허유진', null, null, 3);
+insert into contest_entries (id, title, author, category, description, image_url, sort_order) values
+  (1, '드림청년 생존일지', '노나은', '디자인부문', null, null, 1),
+  (2, '신입은 경력을 어떻게 쌓나요?', '박시온', '영상부문', null, null, 2),
+  (3, '경로를 재탐색합니다.', '허유진', '수기부문', null, null, 3);
 
 -- ------------------------------------------------------------
 -- 투표 진행 여부 함수 (RLS 정책과 참여 화면에서 공용)
@@ -103,7 +104,7 @@ $$;
 
 -- 결과 집계
 create or replace function contest_get_results(pass text)
-returns table(entry_id int, title text, author text, vote_count bigint)
+returns table(entry_id int, title text, author text, category text, vote_count bigint)
 language plpgsql security definer
 set search_path = public
 as $$
@@ -112,10 +113,10 @@ begin
     raise exception 'INVALID_PASS';
   end if;
   return query
-    select e.id, e.title, e.author, count(v.id)::bigint
+    select e.id, e.title, e.author, e.category, count(v.id)::bigint
     from contest_entries e
     left join contest_votes v on v.entry_id = e.id
-    group by e.id, e.title, e.author
+    group by e.id, e.title, e.author, e.category
     order by count(v.id) desc, e.id;
 end;
 $$;

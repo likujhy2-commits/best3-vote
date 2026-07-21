@@ -150,7 +150,21 @@
     padding: 0 16px 10px; font-size: 12.5px; color: #9a94b8;
   }
   .viewer-hint b { color: #a794ff; font-variant-numeric: tabular-nums; }
-  .viewer-body { flex: 1; min-height: 0; }
+  .viewer-hint span { animation: hint-pulse 1.6s ease-in-out infinite; }
+  @keyframes hint-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+  .viewer-body { flex: 1; min-height: 0; position: relative; }
+  /* 책 앱처럼 스와이프를 유도하는 손가락 모션 (첫 스와이프 후 사라짐) */
+  .swipe-guide {
+    position: absolute; top: 50%; right: 14px; z-index: 2; pointer-events: none;
+    font-size: 44px; text-shadow: 0 2px 12px rgba(0,0,0,.55);
+    animation: swipe-nudge 1.8s ease-in-out infinite;
+  }
+  @keyframes swipe-nudge {
+    0%   { opacity: 0; transform: translateY(-50%) translateX(8px); }
+    20%  { opacity: 1; }
+    65%  { opacity: 1; transform: translateY(-50%) translateX(-48px); }
+    100% { opacity: 0; transform: translateY(-50%) translateX(-68px); }
+  }
   .pager {
     height: 100%; display: flex;
     overflow-x: auto; overflow-y: hidden;
@@ -413,7 +427,8 @@ function renderViewerWork() {
   const media = WORK_MEDIA[e.id] || null;
   document.getElementById('viewer-idx').textContent = `${viewerPos + 1}/${entries.length}`;
   document.getElementById('viewer-title').textContent = e.title;
-  document.getElementById('viewer-author').textContent = e.author || '';
+  document.getElementById('viewer-author').textContent =
+    (e.author || '') + (e.category ? ` (${e.category})` : '');
 
   const body = document.getElementById('viewer-body');
   const hint = document.getElementById('viewer-hint');
@@ -443,7 +458,7 @@ function renderViewerWork() {
   } else if (media && media.type === 'pages' && media.pages > 0) {
     const pages = media.pages;
     hint.style.visibility = '';
-    hintText.textContent = '👈 옆으로 넘기며 감상하세요';
+    hintText.textContent = '오른쪽으로 슬라이드해서 감상하세요';
     pageNum.textContent = `1 / ${pages}`;
     for (let n = 1; n <= pages; n++) {
       const page = document.createElement('div');
@@ -455,10 +470,19 @@ function renderViewerWork() {
       page.appendChild(img);
       pager.appendChild(page);
     }
+    // 스와이프 유도 손가락 (한 번 넘기면 사라짐)
+    let guide = null;
+    if (pages > 1) {
+      guide = document.createElement('div');
+      guide.className = 'swipe-guide';
+      guide.textContent = '👈';
+      body.appendChild(guide);
+    }
     // 옆으로 넘길 때마다 페이지 번호 갱신
     pager.addEventListener('scroll', () => {
       const p = Math.min(pages, Math.max(1, Math.round(pager.scrollLeft / pager.clientWidth) + 1));
       pageNum.textContent = `${p} / ${pages}`;
+      if (guide && pager.scrollLeft > 30) { guide.remove(); guide = null; }
     }, { passive: true });
   } else {
     hint.style.visibility = 'hidden';
@@ -514,7 +538,8 @@ function renderEntries(list) {
       <div class="desc"></div>
       ${hasMedia ? `<button class="view-btn" type="button">${viewLabel}</button>` : ''}`;
     card.querySelector('h2').textContent = e.title;
-    card.querySelector('.author').textContent = e.author || '';
+    card.querySelector('.author').textContent =
+      (e.author || '') + (e.category ? ` (${e.category})` : '');
     card.querySelector('.desc').textContent = e.description || '';
     card.addEventListener('click', () => selectEntry(e.id));
     const vb = card.querySelector('.view-btn');

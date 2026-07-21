@@ -159,7 +159,8 @@ async function refresh() {
         <div class="row-count">${r.vote_count}표<span class="row-pct">${pct}%</span></div>
       </div>
       <div class="bar-bg"><div class="bar" style="width:${pct}%"></div></div>`;
-    row.querySelector('.row-title').textContent = r.title + (r.author ? ` · ${r.author}` : '');
+    row.querySelector('.row-title').textContent =
+      r.title + (r.author ? ` · ${r.author}` : '') + (r.category ? ` (${r.category})` : '');
     $('results').appendChild(row);
   });
 
