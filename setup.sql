@@ -51,9 +51,9 @@ values (1, 'waiting', false, '1939');
 
 -- 작품 3개
 insert into contest_entries (id, title, author, category, description, image_url, sort_order) values
-  (1, '드림청년 생존일지', '노나은', '디자인부문', null, null, 1),
-  (2, '신입은 경력을 어떻게 쌓나요?', '박시온', '영상부문', null, null, 2),
-  (3, '경로를 재탐색합니다.', '허유진', '수기부문', null, null, 3);
+  (1, '드림청년 생존일지', '노나은', '디자인', null, null, 1),
+  (2, '신입은 경력을 어떻게 쌓나요?', '박시온', '영상', null, null, 2),
+  (3, '경로를 재탐색합니다.', '허유진', '수기', null, null, 3);
 
 -- ------------------------------------------------------------
 -- 투표 진행 여부 함수 (RLS 정책과 참여 화면에서 공용)

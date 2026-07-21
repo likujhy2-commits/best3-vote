@@ -160,7 +160,7 @@ async function refresh() {
       </div>
       <div class="bar-bg"><div class="bar" style="width:${pct}%"></div></div>`;
     row.querySelector('.row-title').textContent =
-      r.title + (r.author ? ` · ${r.author}` : '') + (r.category ? ` (${r.category})` : '');
+      (r.category ? `[${r.category}] ` : '') + r.title + (r.author ? ` · ${r.author}` : '');
     $('results').appendChild(row);
   });
 

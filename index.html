@@ -427,9 +427,9 @@ function renderViewerWork() {
   const e = entries[viewerPos];
   const media = WORK_MEDIA[e.id] || null;
   document.getElementById('viewer-idx').textContent = `${viewerPos + 1}/${entries.length}`;
-  document.getElementById('viewer-title').textContent = e.title;
-  document.getElementById('viewer-author').textContent =
-    (e.author || '') + (e.category ? ` (${e.category})` : '');
+  document.getElementById('viewer-title').textContent =
+    (e.category ? `[${e.category}] ` : '') + e.title;
+  document.getElementById('viewer-author').textContent = e.author || '';
 
   const body = document.getElementById('viewer-body');
   const hint = document.getElementById('viewer-hint');
@@ -538,9 +538,9 @@ function renderEntries(list) {
       </div>
       <div class="desc"></div>
       ${hasMedia ? `<button class="view-btn" type="button">${viewLabel}</button>` : ''}`;
-    card.querySelector('h2').textContent = e.title;
-    card.querySelector('.author').textContent =
-      (e.author || '') + (e.category ? ` (${e.category})` : '');
+    card.querySelector('h2').textContent =
+      (e.category ? `[${e.category}] ` : '') + e.title;
+    card.querySelector('.author').textContent = e.author || '';
     card.querySelector('.desc').textContent = e.description || '';
     card.addEventListener('click', () => selectEntry(e.id));
     const vb = card.querySelector('.view-btn');
