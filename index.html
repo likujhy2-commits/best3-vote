@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>참여후기 공모전 BEST 3 투표</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -145,9 +145,26 @@
     flex: none; width: 38px; height: 38px; border-radius: 50%; border: 0;
     background: #252043; color: #fff; font-size: 15px; cursor: pointer; font-family: inherit;
   }
-  .viewer-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .viewer-body img { width: 100%; display: block; }
-  .viewer-empty { color: #9a94b8; text-align: center; padding: 100px 20px; font-size: 15px; }
+  .viewer-hint {
+    flex: none; display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 0 16px 10px; font-size: 12.5px; color: #9a94b8;
+  }
+  .viewer-hint b { color: #a794ff; font-variant-numeric: tabular-nums; }
+  .viewer-body { flex: 1; min-height: 0; }
+  .pager {
+    height: 100%; display: flex;
+    overflow-x: auto; overflow-y: hidden;
+    scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .pager::-webkit-scrollbar { display: none; }
+  .page {
+    flex: 0 0 100%; height: 100%; scroll-snap-align: center;
+    display: flex; align-items: center; justify-content: center; padding: 0 6px;
+    box-sizing: border-box;
+  }
+  .page img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+  .viewer-empty { color: #9a94b8; text-align: center; padding: 40px 20px; font-size: 15px; line-height: 1.7; }
   .viewer-nav {
     flex: none; display: flex; gap: 10px;
     padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
@@ -245,6 +262,7 @@
     </div>
     <button id="viewer-close" aria-label="닫기">✕</button>
   </div>
+  <div class="viewer-hint" id="viewer-hint"><span>👈 옆으로 넘기며 감상하세요</span><b id="viewer-page"></b></div>
   <div class="viewer-body" id="viewer-body"></div>
   <div class="viewer-nav">
     <button id="viewer-prev">← 이전 작품</button>
@@ -362,7 +380,7 @@ function startPolling() {
 /* ---------- 작품 소개 뷰어 ---------- */
 
 // 작품 원고: works/{작품id}/{1..페이지수}.jpg  (0이면 준비 중 표시)
-const WORK_PAGES = { 1: 10, 2: 0, 3: 0 };
+const WORK_PAGES = { 1: 10, 2: 0, 3: 4 };
 const INTRO_SEEN_KEY = 'best3_intro_seen_round';   // 이 회차의 강제 관람을 마쳤는지
 let viewerPos = 0;
 let viewerForced = false;                          // 첫 접속 강제 관람 모드 (닫기 버튼 숨김)
@@ -392,19 +410,41 @@ function renderViewerWork() {
   document.getElementById('viewer-author').textContent = e.author || '';
 
   const body = document.getElementById('viewer-body');
+  const hint = document.getElementById('viewer-hint');
+  const pageNum = document.getElementById('viewer-page');
   body.innerHTML = '';
+
+  const pager = document.createElement('div');
+  pager.className = 'pager';
+
   if (!pages) {
-    body.innerHTML = '<div class="viewer-empty">이 작품의 원고를 준비 중이에요 🎨</div>';
+    hint.style.visibility = 'hidden';
+    const page = document.createElement('div');
+    page.className = 'page';
+    page.innerHTML = '<div class="viewer-empty">이 작품은 준비 중이에요 🎨<br>다음 작품으로 넘어가주세요!</div>';
+    pager.appendChild(page);
   } else {
+    hint.style.visibility = '';
+    pageNum.textContent = `1 / ${pages}`;
     for (let n = 1; n <= pages; n++) {
+      const page = document.createElement('div');
+      page.className = 'page';
       const img = document.createElement('img');
       img.src = `works/${e.id}/${n}.jpg`;
       img.loading = n <= 2 ? 'eager' : 'lazy';
       img.alt = `${e.title} ${n}페이지`;
-      body.appendChild(img);
+      page.appendChild(img);
+      pager.appendChild(page);
     }
+    // 옆으로 넘길 때마다 페이지 번호 갱신
+    pager.addEventListener('scroll', () => {
+      const p = Math.min(pages, Math.max(1, Math.round(pager.scrollLeft / pager.clientWidth) + 1));
+      pageNum.textContent = `${p} / ${pages}`;
+    }, { passive: true });
   }
-  body.scrollTop = 0;
+
+  body.appendChild(pager);
+  pager.scrollLeft = 0;
 
   document.getElementById('viewer-prev').disabled = viewerPos === 0;
   document.getElementById('viewer-next').textContent = viewerPos === entries.length - 1
