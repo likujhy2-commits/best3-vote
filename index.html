@@ -192,7 +192,7 @@
       <h1>최고의 후기에<br>한 표를 보내주세요!</h1>
       <div class="sub">작품을 선택한 뒤 투표하기를 눌러주세요 · 1인 1표</div>
       <div class="live-pill"><span class="live-dot"></span>실시간 투표 진행 중 · <b id="live-count-vote">-</b>명 참여</div>
-      <button class="intro-btn" id="intro-btn" type="button">📖 작품 소개 먼저 보기</button>
+      <button class="intro-btn" id="intro-btn" type="button">🏆 BEST 3 수상작 보기</button>
     </header>
     <div id="entries"></div>
   </div>
@@ -202,7 +202,7 @@
     <h1>투표 시작 전입니다</h1>
     <p>곧 투표가 시작돼요!<br>화면을 켜둔 채 잠시만 기다려주세요.</p>
     <div class="live-pill" style="margin-top:22px"><span class="live-dot"></span>시작되면 화면이 자동으로 바뀝니다</div>
-    <button class="intro-btn" id="waiting-intro-btn" type="button" style="max-width:280px">📖 기다리는 동안 작품 미리 보기</button>
+    <button class="intro-btn" id="waiting-intro-btn" type="button" style="max-width:280px">🏆 BEST 3 수상작 보기</button>
   </div>
 
   <div id="done-screen" class="status-screen hidden">
@@ -363,16 +363,24 @@ function startPolling() {
 
 // 작품 원고: works/{작품id}/{1..페이지수}.jpg  (0이면 준비 중 표시)
 const WORK_PAGES = { 1: 10, 2: 0, 3: 0 };
+const INTRO_SEEN_KEY = 'best3_intro_seen_round';   // 이 회차의 강제 관람을 마쳤는지
 let viewerPos = 0;
+let viewerForced = false;                          // 첫 접속 강제 관람 모드 (닫기 버튼 숨김)
 
-function openViewer(entryId) {
+function openViewer(entryId, forced = false) {
   if (!entries.length) return;
+  viewerForced = forced;
+  document.getElementById('viewer-close').style.display = forced ? 'none' : '';
   viewerPos = Math.max(0, entries.findIndex(e => e.id === entryId));
   renderViewerWork();
   document.getElementById('viewer').classList.remove('hidden');
 }
 
 function closeViewer() {
+  if (viewerForced) {                              // 강제 관람을 끝까지 마침 → 이 회차엔 다시 안 뜸
+    lsSet(INTRO_SEEN_KEY, String(currentRound));
+    viewerForced = false;
+  }
   document.getElementById('viewer').classList.add('hidden');
 }
 
@@ -400,7 +408,7 @@ function renderViewerWork() {
 
   document.getElementById('viewer-prev').disabled = viewerPos === 0;
   document.getElementById('viewer-next').textContent = viewerPos === entries.length - 1
-    ? (currentScreen === 'vote-screen' ? '투표하러 가기 🗳️' : '닫기')
+    ? (currentScreen === 'vote-screen' ? '투표하러 가기 🗳️' : '다 봤어요 ✓')
     : '다음 작품 →';
 }
 
@@ -518,9 +526,10 @@ async function init() {
     }
 
     if (status === 'waiting') {
-      // 대기 중에도 작품 미리 보기가 가능하도록 목록을 받아둠
+      // 대기 중에도 작품 보기가 가능하도록 목록을 받아둠
       try { entries = await sbGet('contest_entries?select=*&order=sort_order'); } catch (e) {}
       show('waiting-screen');
+      if (lsGet(INTRO_SEEN_KEY) !== String(state.round)) openViewer(null, true);
       startPolling();
       return;
     }
@@ -536,6 +545,7 @@ async function init() {
     if (!list.length) { show('error-screen'); return; }
     renderEntries(list);
     document.getElementById('live-count-vote').textContent = state.total;
+    if (lsGet(INTRO_SEEN_KEY) !== String(state.round)) openViewer(null, true);
     startPolling();
   } catch (e) {
     show('error-screen');
